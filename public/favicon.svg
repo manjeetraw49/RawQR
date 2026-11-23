@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <rect width="32" height="32" rx="8" fill="#2563EB"/>
+  <!-- Top Left Finder -->
+  <rect x="5" y="5" width="9" height="9" rx="2" stroke="white" stroke-width="2"/>
+  <rect x="8" y="8" width="3" height="3" rx="0.5" fill="white"/>
+  <!-- Top Right Finder -->
+  <rect x="18" y="5" width="9" height="9" rx="2" stroke="white" stroke-width="2"/>
+  <rect x="21" y="8" width="3" height="3" rx="0.5" fill="white"/>
+  <!-- Bottom Left Finder -->
+  <rect x="5" y="18" width="9" height="9" rx="2" stroke="white" stroke-width="2"/>
+  <rect x="8" y="21" width="3" height="3" rx="0.5" fill="white"/>
+  <!-- Bottom Right Accents -->
+  <rect x="18" y="18" width="4" height="4" rx="1" fill="white"/>
+  <rect x="23" y="23" width="4" height="4" rx="1" fill="white"/>
+</svg>
