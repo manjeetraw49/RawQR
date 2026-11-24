@@ -138,7 +138,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                     ? 'Cloudinary CDN'
                     : uploadedInfo.provider === 'supabase'
                     ? 'Supabase Storage'
-                    : 'Server Storage'}
+                    : uploadedInfo.provider === 'cloudCdn'
+                    ? 'Cloud CDN'
+                    : uploadedInfo.provider === 'tmpfiles'
+                    ? 'TmpFiles CDN'
+                    : 'Cloud Storage'}
                 </span>
               </div>
 

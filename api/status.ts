@@ -18,13 +18,14 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     storageProviders: {
       cloudinary: isCloudinaryConfigured,
       supabase: isSupabaseConfigured,
+      cloudCdn: true,
       localDev: false,
     },
     activeProvider: isCloudinaryConfigured
       ? 'cloudinary'
       : isSupabaseConfigured
       ? 'supabase'
-      : 'none',
+      : 'cloudCdn',
     maxSizeBytes: 10 * 1024 * 1024,
     acceptedTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
   });

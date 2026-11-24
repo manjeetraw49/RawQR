@@ -23,7 +23,7 @@ export interface UploadedImageInfo {
   name: string;
   size: number;
   type: string;
-  provider: 'cloudinary' | 'supabase' | 'server';
+  provider: 'cloudinary' | 'supabase' | 'server' | 'cloudCdn' | 'tmpfiles' | 'localDev' | string;
   dimensions?: { width: number; height: number };
 }
 

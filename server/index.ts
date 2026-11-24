@@ -103,6 +103,38 @@ function validateImageMagicBytes(buffer: Buffer): { isValid: boolean; mime?: str
   };
 }
 
+async function uploadToCloudCdn(buffer: Buffer, filename: string, mime: string): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', new Blob([new Uint8Array(buffer)], { type: mime }), filename);
+  try {
+    const res = await fetch('https://api.pixelvault.dev/v1/images', {
+      method: 'POST',
+      body: fd,
+    });
+    if (res.ok) {
+      const data = (await res.json()) as any;
+      if (data?.data?.url) return data.data.url;
+    }
+  } catch (err) {
+    console.warn('[Storage] PixelVault CDN error, trying TmpFiles:', err);
+  }
+
+  // TmpFiles fallback
+  const fdTmp = new FormData();
+  fdTmp.append('file', new Blob([new Uint8Array(buffer)], { type: mime }), filename);
+  const resTmp = await fetch('https://tmpfiles.org/api/v1/upload', {
+    method: 'POST',
+    body: fdTmp,
+  });
+  if (resTmp.ok) {
+    const dataTmp = (await resTmp.json()) as any;
+    if (dataTmp?.status === 'success' && dataTmp.data?.url) {
+      return dataTmp.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+    }
+  }
+  throw new Error('Cloud CDN upload unavailable');
+}
+
 // Health and configuration check
 app.get('/api/status', (req, res) => {
   res.json({
@@ -220,8 +252,23 @@ app.post('/api/upload', upload.single('image'), async (req: express.Request, res
       return;
     }
 
-    // 3. Fallback for Local Development / Testing
-    // Saves to public/uploads and returns a complete server URL
+    // 3. Try Cloud CDN (Provides a real public URL for scannable QR codes)
+    try {
+      const cdnUrl = await uploadToCloudCdn(file.buffer, uniqueFilename, mime);
+      res.status(200).json({
+        success: true,
+        url: cdnUrl,
+        provider: 'cloudCdn',
+        name: file.originalname,
+        size: file.size,
+        mime,
+      });
+      return;
+    } catch {
+      // Offline fallback: save locally
+    }
+
+    // 4. Local Disk Fallback
     const destinationPath = path.join(UPLOAD_DIR, uniqueFilename);
     fs.writeFileSync(destinationPath, file.buffer);
 
@@ -233,11 +280,11 @@ app.post('/api/upload', upload.single('image'), async (req: express.Request, res
     res.status(200).json({
       success: true,
       url: localUrl,
-      provider: 'server',
+      provider: 'localDev',
       name: file.originalname,
       size: file.size,
       mime,
-      notice: 'Uploaded to local development server. Add Cloudinary or Supabase credentials in .env for production cloud hosting.',
+      notice: 'Uploaded to local server.',
     });
   } catch (error: any) {
     console.error('Image upload failed:', error);

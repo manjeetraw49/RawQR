@@ -65,6 +65,40 @@ function validateImageMagicBytes(buffer: Buffer): { isValid: boolean; mime?: str
   };
 }
 
+async function uploadToPixelVault(buffer: Buffer, filename: string, mime: string): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', new Blob([new Uint8Array(buffer)], { type: mime }), filename);
+  const response = await fetch('https://api.pixelvault.dev/v1/images', {
+    method: 'POST',
+    body: fd,
+  });
+  if (!response.ok) {
+    throw new Error(`PixelVault returned HTTP ${response.status}`);
+  }
+  const data = (await response.json()) as any;
+  if (data?.data?.url) {
+    return data.data.url;
+  }
+  throw new Error('PixelVault did not return a valid URL');
+}
+
+async function uploadToTmpfiles(buffer: Buffer, filename: string, mime: string): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', new Blob([new Uint8Array(buffer)], { type: mime }), filename);
+  const response = await fetch('https://tmpfiles.org/api/v1/upload', {
+    method: 'POST',
+    body: fd,
+  });
+  if (!response.ok) {
+    throw new Error(`TmpFiles returned HTTP ${response.status}`);
+  }
+  const data = (await response.json()) as any;
+  if (data?.status === 'success' && data.data?.url) {
+    return data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+  }
+  throw new Error('TmpFiles did not return a valid URL');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
@@ -183,12 +217,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // If no cloud credentials are configured on Vercel
-    return res.status(500).json({
-      success: false,
-      error:
-        'Cloud storage is not configured yet on Vercel. Please add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your Vercel Project Environment Variables.',
-    });
+    // 3. Fallback to Cloud CDN (Zero-configuration instant hosting)
+    try {
+      const cdnUrl = await uploadToPixelVault(file.buffer, uniqueFilename, mime);
+      return res.status(200).json({
+        success: true,
+        url: cdnUrl,
+        provider: 'cloudCdn',
+        name: file.originalname,
+        size: file.size,
+        mime,
+      });
+    } catch (pixelVaultErr) {
+      console.warn('PixelVault upload failed, falling back to TmpFiles:', pixelVaultErr);
+      try {
+        const tmpUrl = await uploadToTmpfiles(file.buffer, uniqueFilename, mime);
+        return res.status(200).json({
+          success: true,
+          url: tmpUrl,
+          provider: 'tmpfiles',
+          name: file.originalname,
+          size: file.size,
+          mime,
+        });
+      } catch (tmpErr: any) {
+        throw new Error(`Cloud upload failed: ${tmpErr.message || 'Network error'}`);
+      }
+    }
   } catch (err: any) {
     console.error('Vercel upload error:', err);
     return res.status(500).json({
