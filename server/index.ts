@@ -295,6 +295,70 @@ app.post('/api/upload', upload.single('image'), async (req: express.Request, res
   }
 });
 
+// Contact / Note submission endpoint
+app.post('/api/contact', async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const { name, email, subject, message } = req.body || {};
+
+    if (!name || !email || !message) {
+      res.status(400).json({
+        success: false,
+        error: 'Please fill in all required fields (name, email, message).',
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address.',
+      });
+      return;
+    }
+
+    const targetEmail = process.env.CONTACT_EMAIL || 'mk7366175@gmail.com';
+    const response = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Origin: req.headers.origin || 'http://localhost:5173',
+        Referer: req.headers.referer || 'http://localhost:5173/',
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        _replyto: email,
+        _subject: `[RawQR Note] ${subject || 'New Note Received'}`,
+        message,
+        _template: 'table',
+      }),
+    });
+
+    const data = (await response.json()) as any;
+    if (data?.message && data.message.includes('Activation')) {
+      res.status(200).json({
+        success: true,
+        activationNeeded: true,
+        message: data.message,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Your note has been delivered successfully!',
+    });
+  } catch (error: any) {
+    console.error('Contact form submission error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to send note. Please try again.',
+    });
+  }
+});
+
 // Serve frontend in production if built
 const DIST_DIR = path.resolve(process.cwd(), 'dist');
 if (fs.existsSync(DIST_DIR)) {

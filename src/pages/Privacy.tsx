@@ -100,8 +100,8 @@ export const Privacy: React.FC = () => {
           </h2>
           <p>
             If you have questions regarding our data handling or image deletion policies, please email us directly at{' '}
-            <a href="mailto:privacy@rawqr.io" className="text-blue-600 hover:underline font-medium">
-              privacy@rawqr.io
+            <a href="mailto:mk7366175@gmail.com" className="text-blue-600 hover:underline font-medium">
+              mk7366175@gmail.com
             </a>.
           </p>
         </section>

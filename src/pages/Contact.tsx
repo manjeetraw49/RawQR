@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, MessageSquare, Send, CheckCircle2, Clock } from 'lucide-react';
+import { Mail, MessageSquare, Send, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 
 export const Contact: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -11,17 +11,72 @@ export const Contact: React.FC = () => {
 
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activationNotice, setActivationNotice] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage(null);
+    setActivationNotice(null);
 
-    // Simulate sending message
-    setTimeout(() => {
-      setIsSubmitting(false);
+    const payload = {
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      subject: formData.subject.trim(),
+      message: formData.message.trim(),
+    };
+
+    try {
+      // 1. Try sending via backend /api/contact
+      let response: Response;
+      try {
+        response = await fetch('/api/contact', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // 2. Direct client fallback to FormSubmit if backend is unreachable
+        response = await fetch('https://formsubmit.co/ajax/mk7366175@gmail.com', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            name: payload.name,
+            email: payload.email,
+            _replyto: payload.email,
+            _subject: `[RawQR Note] ${payload.subject || 'New Note Received'}`,
+            message: payload.message,
+            _template: 'table',
+          }),
+        });
+      }
+
+      const data = await response.json();
+
+      if (!response.ok && data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.activationNeeded) {
+        setActivationNotice(
+          "Your note has been submitted! If this is your first time receiving messages, please check mk7366175@gmail.com to click the 1-time FormSubmit activation link."
+        );
+      }
+
       setSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
-    }, 600);
+    } catch (err: any) {
+      console.error('Contact submission error:', err);
+      setErrorMessage(err.message || 'Failed to send note. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -31,7 +86,7 @@ export const Contact: React.FC = () => {
           Contact the RawQR Team
         </h1>
         <p className="mt-3 text-sm sm:text-base text-gray-600 max-w-xl mx-auto">
-          Have feedback, need assistance with your QR code implementation, or looking for custom integration help? Send us a message.
+          Have feedback, need assistance with your QR code implementation, or looking for custom integration help? Send us a note.
         </p>
       </div>
 
@@ -43,7 +98,7 @@ export const Contact: React.FC = () => {
               Support & Inquiries
             </h3>
             <p className="text-xs text-gray-600 leading-relaxed">
-              We respond to developer questions, feature requests, and bug reports promptly.
+              We respond to developer questions, feature requests, and inquiries promptly.
             </p>
 
             <div className="space-y-3 pt-2">
@@ -54,10 +109,10 @@ export const Contact: React.FC = () => {
                 <div>
                   <span className="text-[11px] text-gray-500 block">Email Us</span>
                   <a
-                    href="mailto:support@rawqr.io"
+                    href="mailto:mk7366175@gmail.com"
                     className="font-medium hover:text-blue-600 transition-colors"
                   >
-                    support@rawqr.io
+                    mk7366175@gmail.com
                   </a>
                 </div>
               </div>
@@ -93,17 +148,27 @@ export const Contact: React.FC = () => {
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  Message Sent Successfully!
+                  Note Sent Successfully!
                 </h3>
                 <p className="text-xs text-gray-600 max-w-xs mx-auto">
-                  Thank you for reaching out. A member of our support team will get back to you shortly.
+                  Thank you for reaching out. Your note has been delivered to <strong>mk7366175@gmail.com</strong>.
                 </p>
+
+                {activationNotice && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 text-left my-3 leading-relaxed">
+                    ℹ️ {activationNotice}
+                  </div>
+                )}
+
                 <button
                   type="button"
-                  onClick={() => setSubmitted(false)}
+                  onClick={() => {
+                    setSubmitted(false);
+                    setActivationNotice(null);
+                  }}
                   className="mt-4 px-4 py-2 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
                 >
-                  Send Another Message
+                  Send Another Note
                 </button>
               </div>
             ) : (
@@ -112,6 +177,13 @@ export const Contact: React.FC = () => {
                   <MessageSquare className="w-5 h-5 text-blue-600" />
                   <span>Send Us a Note</span>
                 </h3>
+
+                {errorMessage && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -174,10 +246,10 @@ export const Contact: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-all shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-all shadow-sm disabled:opacity-60"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Sending...' : 'Send Message'}</span>
+                  <span>{isSubmitting ? 'Sending Note...' : 'Send Note'}</span>
                 </button>
               </form>
             )}
